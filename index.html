@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>글로벌 라면 조리 타이머 - 개발자 박미라</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8f9fa; }
+        .timer-display { font-variant-numeric: tabular-nums; }
+        .step-active { border-left: 4px solid #ef4444; background-color: #fef2f2; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-red-600 text-white p-4 shadow-md flex justify-between items-center">
+        <h1 class="text-xl font-bold">🍜 Global Ramen Timer</h1>
+        <div class="text-sm font-medium">Developer: 박미라 (Mira Park)</div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
+        <!-- Left Panel: Configuration -->
+        <aside id="config-panel" class="w-full md:w-1/3 bg-white p-6 border-r overflow-y-auto">
+            <h2 class="text-lg font-bold mb-4 border-b pb-2">1. Settings</h2>
+            
+            <!-- Language -->
+            <div class="mb-4">
+                <label class="block text-sm font-semibold mb-2">Language / 언어</label>
+                <select id="lang-select" class="w-full p-2 border rounded">
+                    <option value="ko-KR">한국어 (Korean)</option>
+                    <option value="en-US">English (영어)</option>
+                    <option value="ja-JP">日本語 (Japanese)</option>
+                    <option value="zh-CN">简体中文 (Chinese)</option>
+                    <option value="es-ES">Español (Spanish)</option>
+                    <option value="de-DE">Deutsch (German)</option>
+                    <option value="vi-VN">Tiếng Việt (Vietnamese)</option>
+                </select>
+            </div>
+
+            <!-- Heat Source -->
+            <div class="mb-4">
+                <label class="block text-sm font-semibold mb-2">Heat Source / 화력</label>
+                <div class="flex gap-2">
+                    <button onclick="setHeat('gas')" id="btn-gas" class="flex-1 py-2 border rounded bg-red-50 border-red-500 font-bold">Gas</button>
+                    <button onclick="setHeat('induction')" id="btn-induction" class="flex-1 py-2 border rounded">Induction</button>
+                </div>
+            </div>
+
+            <!-- Ramen Type -->
+            <div class="mb-4">
+                <label class="block text-sm font-semibold mb-2">Ramen Type / 라면 종류</label>
+                <select id="ramen-select" class="w-full p-2 border rounded">
+                    <option value="standard">일반 라면 (Standard)</option>
+                    <option value="thick">굵은 면 (e.g. 너구리)</option>
+                    <option value="thin">얇은 면 (e.g. 육개장)</option>
+                    <option value="stir">볶음면 (e.g. 짜파게티/불닭)</option>
+                </select>
+            </div>
+
+            <!-- Toppings -->
+            <div class="mb-4">
+                <label class="block text-sm font-semibold mb-2">Toppings / 토핑</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" value="ricecake" class="topping-check"> Rice Cake (떡)</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" value="scallion" class="topping-check"> Scallion (파)</label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" value="cheese" class="topping-check"> Cheese (치즈)</label>
+                </div>
+            </div>
+
+            <!-- Egg -->
+            <div class="mb-6">
+                <label class="block text-sm font-semibold mb-2">Egg Style / 계란</label>
+                <select id="egg-select" class="w-full p-2 border rounded">
+                    <option value="none">No Egg</option>
+                    <option value="soft">Soft Boiled (반숙)</option>
+                    <option value="hard">Hard Boiled (완숙)</option>
+                </select>
+            </div>
+
+            <button onclick="initCooking()" class="w-full bg-red-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-red-700 transition shadow-lg">
+                READY TO COOK!
+            </button>
+        </aside>
+
+        <!-- Right Panel: Timer & Status -->
+        <section id="timer-panel" class="w-full md:w-2/3 p-6 flex flex-col items-center justify-center bg-gray-50 relative">
+            
+            <div id="welcome-view" class="text-center">
+                <div class="text-6xl mb-4">👨‍🍳</div>
+                <h2 class="text-2xl font-bold text-gray-700">Select your preferences and start!</h2>
+            </div>
+
+            <div id="active-timer-view" class="hidden w-full max-w-md text-center">
+                <div id="current-step-title" class="text-2xl font-bold text-red-600 mb-2">Step Name</div>
+                <div id="timer-display" class="timer-display text-8xl font-black mb-8 text-gray-800">00:00</div>
+                
+                <div class="flex gap-4 justify-center mb-8">
+                    <button id="btn-start-step" onclick="startCurrentStep()" class="px-8 py-3 bg-green-600 text-white rounded-full font-bold shadow-md hover:bg-green-700">START</button>
+                    <button id="btn-next-step" onclick="nextStep()" class="px-8 py-3 bg-blue-600 text-white rounded-full font-bold shadow-md hover:bg-blue-700">NEXT STEP</button>
+                </div>
+
+                <div id="step-list" class="text-left bg-white rounded-lg shadow-inner p-4 max-h-64 overflow-y-auto">
+                    <!-- Steps will be injected here -->
+                </div>
+            </div>
+
+            <!-- Progress Overlay -->
+            <div id="completion-view" class="hidden absolute inset-0 bg-white flex flex-col items-center justify-center z-10 p-10 text-center">
+                <div class="text-8xl mb-4">✨</div>
+                <h2 id="final-msg" class="text-3xl font-bold mb-4">Delicious Ramen is Ready!</h2>
+                <button onclick="location.reload()" class="px-10 py-3 bg-gray-800 text-white rounded-full">Reset</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const TRANSLATIONS = {
+            'ko-KR': {
+                ready: "준비 완료!",
+                start: "조리를 시작하려면 시작 버튼을 눌러주세요.",
+                boil: "물 끓이기",
+                boil_desc: "냄비에 물을 넣고 끓여주세요.",
+                noodle: "면과 스프 넣기",
+                noodle_desc: "끓는 물에 면과 스프를 넣어주세요.",
+                topping: "토핑 넣기",
+                egg: "계란 넣기",
+                finish: "조리가 완료되었습니다! 맛있게 드세요!",
+                next_btn: "다음 단계",
+                start_btn: "시작",
+                ricecake: "떡", scallion: "파", cheese: "치즈", soft: "반숙 계란", hard: "완숙 계란",
+                gas: "가스레인지", induction: "인덕션"
+            },
+            'en-US': {
+                ready: "Ready!",
+                start: "Press Start to begin cooking.",
+                boil: "Boiling Water",
+                boil_desc: "Put water in the pot and boil it.",
+                noodle: "Add Noodles & Soup",
+                noodle_desc: "Add noodles and soup base to boiling water.",
+                topping: "Adding Toppings",
+                egg: "Adding Egg",
+                finish: "Cooking finished! Enjoy your meal!",
+                next_btn: "Next Step",
+                start_btn: "Start",
+                ricecake: "Rice Cake", scallion: "Scallion", cheese: "Cheese", soft: "Soft Egg", hard: "Hard Egg",
+                gas: "Gas Stove", induction: "Induction"
+            },
+            'ja-JP': {
+                ready: "準備完了！",
+                start: "開始ボタンを押して調理を始めてください。",
+                boil: "お湯を沸かす",
+                boil_desc: "鍋に水を入れて沸騰させてください。",
+                noodle: "麺とスープを入れる",
+                noodle_desc: "沸騰したお湯に麺とスープを入れてください。",
+                topping: "トッピングを追加",
+                egg: "卵を入れる",
+                finish: "調理が完了しました！召し上がれ！",
+                next_btn: "次へ",
+                start_btn: "開始",
+                ricecake: "餅", scallion: "ネギ", cheese: "チーズ", soft: "半熟卵", hard: "完熟卵",
+                gas: "ガスコンロ", induction: "IH調理器"
+            },
+            'zh-CN': {
+                ready: "准备好了！",
+                start: "按开始按钮开始烹饪。",
+                boil: "烧水",
+                boil_desc: "在锅里加水烧开。",
+                noodle: "加入面条和调料",
+                noodle_desc: "在沸水中加入面条和调料包。",
+                topping: "加入配料",
+                egg: "加鸡蛋",
+                finish: "烹饪完成！请享用！",
+                next_btn: "下一步",
+                start_btn: "开始",
+                ricecake: "年糕", scallion: "葱", cheese: "芝士", soft: "糖心蛋", hard: "全熟蛋",
+                gas: "燃气灶", induction: "电磁炉"
+            }
+            // Other languages can be expanded similarly
+        };
+
+        // Fallback for missing translations
+        const getT = (key) => {
+            const lang = document.getElementById('lang-select').value;
+            return (TRANSLATIONS[lang] || TRANSLATIONS['ko-KR'])[key] || key;
+        };
+
+        let heatSource = 'gas';
+        let steps = [];
+        let currentStepIdx = -1;
+        let timer = null;
+        let timeLeft = 0;
+
+        function setHeat(type) {
+            heatSource = type;
+            document.getElementById('btn-gas').className = type === 'gas' ? 'flex-1 py-2 border rounded bg-red-50 border-red-500 font-bold' : 'flex-1 py-2 border rounded';
+            document.getElementById('btn-induction').className = type === 'induction' ? 'flex-1 py-2 border rounded bg-blue-50 border-blue-500 font-bold' : 'flex-1 py-2 border rounded';
+        }
+
+        function speak(text) {
+            // Remove emojis for TTS
+            const cleanText = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+            const msg = new SpeechSynthesisUtterance(cleanText);
+            msg.lang = document.getElementById('lang-select').value;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(msg);
+        }
+
+        function initCooking() {
+            steps = [];
+            const ramenType = document.getElementById('ramen-select').value;
+            const eggStyle = document.getElementById('egg-select').value;
+            const toppings = Array.from(document.querySelectorAll('.topping-check:checked')).map(el => el.value);
+
+            // Step 1: Boiling Water
+            let boilTime = heatSource === 'gas' ? 240 : 180; // 4 min vs 3 min
+            steps.push({ title: "💧 " + getT('boil'), desc: getT('boil_desc'), time: boilTime });
+
+            // Step 2: Noodle & Base
+            let cookTime = 270; // 4.5 min default
+            if (ramenType === 'thick') cookTime = 300;
+            if (ramenType === 'thin') cookTime = 180;
+            if (ramenType === 'stir') cookTime = 300;
+            
+            steps.push({ title: "🍜 " + getT('noodle'), desc: getT('noodle_desc'), time: 30 }); // Preparation time for adding
+
+            // Timing for toppings and eggs within the cooking cycle
+            // We split the main cook time
+            if (toppings.length > 0) {
+                steps.push({ 
+                    title: "🥗 " + getT('topping'), 
+                    desc: toppings.map(t => getT(t)).join(', ') + " 추가", 
+                    time: cookTime - 60,
+                    voice: toppings.map(t => getT(t)).join(', ') + " 넣어주세요"
+                });
+                cookTime = 60;
+            }
+
+            if (eggStyle !== 'none') {
+                let eggTime = eggStyle === 'soft' ? 90 : 150;
+                steps.push({ 
+                    title: "🥚 " + getT('egg'), 
+                    desc: getT(eggStyle), 
+                    time: eggTime,
+                    voice: getT(eggStyle) + " 넣어주세요"
+                });
+                cookTime = Math.max(0, cookTime - eggTime);
+            }
+
+            if (cookTime > 0) {
+                steps.push({ title: "⏳ " + getT('finish'), desc: "Final Simmer", time: cookTime });
+            }
+
+            renderSteps();
+            document.getElementById('welcome-view').classList.add('hidden');
+            document.getElementById('active-timer-view').classList.remove('hidden');
+            currentStepIdx = 0;
+            showStep(0);
+        }
+
+        function renderSteps() {
+            const list = document.getElementById('step-list');
+            list.innerHTML = steps.map((s, i) => `
+                <div id="step-item-${i}" class="p-3 border-b text-sm">
+                    <div class="font-bold">${s.title}</div>
+                    <div class="text-xs text-gray-500">${Math.floor(s.time / 60)}m ${s.time % 60}s</div>
+                </div>
+            `).join('');
+        }
+
+        function showStep(idx) {
+            clearInterval(timer);
+            document.querySelectorAll('[id^="step-item-"]').forEach(el => el.classList.remove('step-active'));
+            const activeItem = document.getElementById(`step-item-${idx}`);
+            if (activeItem) activeItem.classList.add('step-active');
+
+            const step = steps[idx];
+            document.getElementById('current-step-title').innerText = step.title;
+            timeLeft = step.time;
+            updateDisplay();
+
+            // Voice announce
+            const announce = step.voice || (step.title + ". " + getT('start'));
+            speak(announce);
+        }
+
+        function updateDisplay() {
+            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const s = (timeLeft % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').innerText = `${m}:${s}`;
+        }
+
+        function startCurrentStep() {
+            if (timer) clearInterval(timer);
+            timer = setInterval(() => {
+                timeLeft--;
+                updateDisplay();
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    speak("Completed");
+                    // Auto-trigger next or wait for button? User requested 'Next Step' button to be visible.
+                }
+            }, 1000);
+        }
+
+        function nextStep() {
+            currentStepIdx++;
+            if (currentStepIdx < steps.length) {
+                showStep(currentStepIdx);
+            } else {
+                finishCooking();
+            }
+        }
+
+        function finishCooking() {
+            document.getElementById('completion-view').classList.remove('hidden');
+            document.getElementById('final-msg').innerText = getT('finish');
+            speak(getT('finish'));
+        }
+
+        // Initialize state
+        window.onload = () => {
+            speak("Welcome to Ramen Timer by Mira Park");
+        };
+    </script>
+</body>
+</html>
